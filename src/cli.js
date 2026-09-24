@@ -5,7 +5,7 @@ import { compute, hours } from './compute.js';
 import { buildPayload, encode } from './payload.js';
 
 const SITE = process.env.CLAUDE_CODE_HOURS_URL || 'https://claude-code-hours.vercel.app/';
-const VERSION = '0.1.0';
+const VERSION = '0.1.1';
 
 const HELP = `claude-code-hours - how many hours you've spent in Claude Code
 
