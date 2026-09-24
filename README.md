@@ -1,5 +1,5 @@
 # Claude Code Hours
-
+[![Claude Code hours](https://claude-code-hours.vercel.app/badge/1294.svg)](https://claude-code-hours.vercel.app)
 How many hours have you spent in Claude Code? Run one command:
 
 ```bash
