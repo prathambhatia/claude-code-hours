@@ -30,8 +30,8 @@ export async function POST(request) {
     const [saved] = await redis([
       ['SET', `r:${id}`, JSON.stringify(p), 'EX', String(TTL), 'NX'],
       ['INCR', `stats:created:${istDay()}`], ['INCR', 'stats:created:total'],
-      // link:<id> -> uid so an admin can trace a short link back to a ranked (named) person later
-      ...(uid ? [['ZADD', 'rank:hours', String(p.t / 10), uid], ['HSET', 'rank:seen', uid, istDay()], ['SET', `link:${id}`, uid, 'EX', String(TTL)], ...(name ? [['HSET', 'rank:name', uid, name]] : [])] : []),
+      // link:<id> -> uid (id to name) and rank:link uid -> id (name to latest live link), kept in sync
+      ...(uid ? [['ZADD', 'rank:hours', String(p.t / 10), uid], ['HSET', 'rank:seen', uid, istDay()], ['SET', `link:${id}`, uid, 'EX', String(TTL)], ['HSET', 'rank:link', uid, id], ...(name ? [['HSET', 'rank:name', uid, name]] : [])] : []),
     ]);
     if (saved !== 'OK') return json({ error: 'try again' }, 503);
   } catch { return json({ error: 'store unavailable' }, 503); }

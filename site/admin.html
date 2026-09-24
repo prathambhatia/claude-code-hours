@@ -33,6 +33,7 @@ tr.new td { animation: flash 2.4s ease-out; }
 @media (prefers-reduced-motion: reduce) { tr.new td { animation: none; } }
 .error { color: var(--stamp); }
 .none { color: var(--ink-3); }
+td a { color: var(--ink); }
 </style>
 </head>
 <body>
@@ -45,7 +46,7 @@ tr.new td { animation: flash 2.4s ease-out; }
     <div><dt>Short-link views</dt><dd id="views">–</dd></div>
   </dl>
   <table>
-    <thead><tr><th scope="col">Date</th><th scope="col" class="h">Hours</th><th scope="col">Name</th><th scope="col">Who</th></tr></thead>
+    <thead><tr><th scope="col">Date</th><th scope="col" class="h">Hours</th><th scope="col">Name</th><th scope="col">Who</th><th scope="col">Short link</th></tr></thead>
     <tbody id="rows"></tbody>
   </table>
 </main>
@@ -71,7 +72,8 @@ async function load() {
     <td>${day(r.date)}</td>
     <td class="h">${r.hours.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} h</td>
     <td>${r.name ? esc(r.name) : '<span class="none">not given</span>'}</td>
-    <td><code>${esc(r.id)}…</code>${r.you ? '<span class="you">you</span>' : ''}</td></tr>`).join('');
+    <td><code>${esc(r.id)}…</code>${r.you ? '<span class="you">you</span>' : ''}</td>
+    <td>${r.link ? `<a href="/r/${esc(r.link)}">/r/${esc(r.link)}</a>` : '<span class="none">none live</span>'}</td></tr>`).join('');
   known = ids;
   const t = new Date(d.at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' });
   document.getElementById('meta').textContent = `Updated ${t} IST. Refreshes every minute while this tab is open.`;

@@ -24,10 +24,11 @@ export async function GET(request) {
   if (!authorised(request)) return json({ error: 'not allowed' }, 401);
   const id = new URL(request.url).searchParams.get('id');
   if (id) return whois(id);
-  const [ranked, seen, names, created, views] = await redis([
+  const [ranked, seen, names, links, created, views] = await redis([
     ['ZRANGE', 'rank:hours', '0', '-1', 'REV', 'WITHSCORES'],
     ['HGETALL', 'rank:seen'],
     ['HGETALL', 'rank:name'],
+    ['HGETALL', 'rank:link'],
     ['GET', 'stats:created:total'],
     ['GET', 'stats:views:total'],
   ]);
@@ -35,10 +36,22 @@ export async function GET(request) {
   for (let i = 0; i < (seen || []).length; i += 2) last[seen[i]] = seen[i + 1];
   const who = {};
   for (let i = 0; i < (names || []).length; i += 2) who[names[i]] = names[i + 1];
-  const rows = [];
-  for (let i = 0; i < ranked.length; i += 2) {
-    const uid = ranked[i];
-    rows.push({ id: uid.slice(0, 10), name: who[uid] || null, hours: Number(ranked[i + 1]), date: last[uid] || null, you: uid === process.env.OWNER_UID });
-  }
+  const lastLink = {};
+  for (let i = 0; i < (links || []).length; i += 2) lastLink[links[i]] = links[i + 1];
+  const uids = [];
+  for (let i = 0; i < ranked.length; i += 2) uids.push(ranked[i]);
+  // rank:link keeps the latest id even after that short link's 90-day TTL expires,
+  // so confirm each one still resolves before showing it as live
+  const withLink = uids.map((uid, i) => ({ uid, i, link: lastLink[uid] })).filter(r => r.link);
+  const exists = withLink.length ? await redis(withLink.map(r => ['EXISTS', `r:${r.link}`])) : [];
+  const live = new Set(withLink.filter((r, i) => Number(exists[i]) === 1).map(r => r.i));
+  const rows = uids.map((uid, i) => ({
+    id: uid.slice(0, 10),
+    name: who[uid] || null,
+    hours: Number(ranked[i * 2 + 1]),
+    date: last[uid] || null,
+    link: live.has(i) ? lastLink[uid] : null,
+    you: uid === process.env.OWNER_UID,
+  }));
   return json({ rows, sheets: Number(created) || 0, views: Number(views) || 0, at: new Date().toISOString() });
 }

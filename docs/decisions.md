@@ -160,8 +160,26 @@ authenticated, same as the ranking view) resolves it: `link:<id>` → `uid` → 
   short links that predated this change have no `link:<id>` entry and stay unresolvable — `GET
   /api/admin?id=<id>` returns `{ id, name: null }` for those, same as for a run with no `uid` or
   no captured name.
-- **No UI yet.** The lookup is a raw API call (`curl -H "x-admin-key: ..." ".../api/admin?id=xxx"`);
-  `site/admin.html` still only shows the aggregate ranking table.
+**24/09/2026 — added a "Short link" column to the tracker itself**, same day:
+`POST /api/r` now also writes `rank:link` (a hash, `uid -> id`), the reverse of `link:<id> -> uid`
+above, so the ranking table can show each person's own latest link without a raw `curl`. `GET
+/api/admin` (the row-listing call, not the `?id=` lookup) now batches an `EXISTS r:<id>` per row
+before including a link, and `site/admin.html` renders it as `/r/<id>` next to "Who", or "none
+live" if that link's 90-day TTL has already passed.
 
-**Revisit if:** the owner wants this searchable from `site/admin.html` directly, or if the privacy
-narrowing above ever needs disclosing more prominently than decision 4 already does.
+- **Only the latest link per person is shown**, not every link they've ever generated. Each run
+  overwrites `rank:link[uid]` — there's no history. A person who has run the CLI several times only
+  shows their most recent share link in the table.
+- **One extra `EXISTS` read per ranked row, per admin page load** (previously the table was three
+  flat reads regardless of row count). Bounded by the same list `rank:hours` already returns, so it
+  scales with people ranked, not with links created — acceptable at current volume (dozens of rows).
+- **`rank:link` itself never expires**, even after the `r:<id>` it points to does — that's why the
+  `EXISTS` check exists at all, so the table never links to a dead page. If the person runs again,
+  the hash is silently updated to the new id.
+
+**No UI for the reverse (all links for one name) or the one-off `?id=` lookup** — that's still a raw
+`curl` (see above). This addendum only surfaces "this ranked person's most recent link," inline.
+
+**Revisit if:** the owner wants full link history per person (would need a Redis set, e.g.
+`links:<uid>`, appended to on every run instead of overwritten), or if the privacy narrowing this
+decision introduces ever needs disclosing more prominently than decision 4 already does.
