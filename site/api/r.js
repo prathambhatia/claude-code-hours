@@ -28,7 +28,7 @@ export async function POST(request) {
     const [saved] = await redis([
       ['SET', `r:${id}`, JSON.stringify(p), 'EX', String(TTL), 'NX'],
       ['INCR', `stats:created:${istDay()}`], ['INCR', 'stats:created:total'],
-      ...(uid ? [['ZADD', 'rank:hours', String(p.t / 10), uid]] : []),
+      ...(uid ? [['ZADD', 'rank:hours', String(p.t / 10), uid], ['HSET', 'rank:seen', uid, istDay()]] : []),
     ]);
     if (saved !== 'OK') return json({ error: 'try again' }, 503);
   } catch { return json({ error: 'store unavailable' }, 503); }

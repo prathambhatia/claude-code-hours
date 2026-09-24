@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Tracker</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+:root { --paper: #E4EBE3; --rule: #C3D2C6; --ink: #1C2B4A; --ink-2: #4A5A75; --ink-3: #6E7C90; --stamp: #B3261E; color-scheme: light; }
+@media (prefers-color-scheme: dark) {
+  :root { --paper: #131B1A; --rule: #223130; --ink: #D8E3EC; --ink-2: #A3B3C2; --ink-3: #7F8FA0; --stamp: #E5584C; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: "Archivo", system-ui, sans-serif; font-size: 16px; line-height: 24px; }
+main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 22px; margin: 0; font-variation-settings: "wdth" 125; font-weight: 800; }
+.meta { color: var(--ink-2); margin: 4px 0 24px; }
+.totals { display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 24px; }
+.totals div { border-bottom: 1px solid var(--ink-3); min-width: 140px; }
+.totals dt { font-size: 13px; color: var(--ink-3); }
+.totals dd { margin: 0; font-size: 26px; line-height: 36px; font-weight: 700; font-variation-settings: "wdth" 88; font-variant-numeric: tabular-nums; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--rule); }
+th { font-size: 13px; color: var(--ink-3); font-weight: 400; }
+td.h, th.h { text-align: right; padding-right: 32px; }
+td.h { font-weight: 700; }
+code { font-family: ui-monospace, Menlo, monospace; font-size: 14px; color: var(--ink-2); }
+.you { color: var(--stamp); font-weight: 700; margin-left: 8px; }
+tr.new td { animation: flash 2.4s ease-out; }
+@keyframes flash { from { background: color-mix(in srgb, var(--stamp) 22%, transparent); } to { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { tr.new td { animation: none; } }
+.error { color: var(--stamp); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Claude Code Hours: tracker</h1>
+  <p class="meta" id="meta">Loading…</p>
+  <dl class="totals">
+    <div><dt>People ranked</dt><dd id="n">–</dd></div>
+    <div><dt>Sheets created</dt><dd id="sheets">–</dd></div>
+    <div><dt>Short-link views</dt><dd id="views">–</dd></div>
+  </dl>
+  <table>
+    <thead><tr><th scope="col">Date</th><th scope="col" class="h">Hours</th><th scope="col">Who</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</main>
+<script>
+const key = (location.hash.match(/k=([A-Za-z0-9_-]+)/) || [])[1] || '';
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const ord = d => d + (d % 100 >= 11 && d % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][d % 10] || 'th');
+const day = k => { if (!k) return '–'; const [y, m, d] = k.split('-').map(Number); return `${ord(d)} ${MON[m - 1]} ${y}`; };
+const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+let known = null;
+
+async function load() {
+  let res;
+  try { res = await fetch('/api/admin', { headers: { 'x-admin-key': key }, cache: 'no-store' }); }
+  catch { document.getElementById('meta').innerHTML = '<span class="error">Couldn’t reach the server. Retrying.</span>'; return; }
+  if (res.status === 401) { document.getElementById('meta').innerHTML = '<span class="error">This link’s key is missing or wrong.</span>'; return stop(); }
+  const d = await res.json();
+  document.getElementById('n').textContent = d.rows.length.toLocaleString('en-US');
+  document.getElementById('sheets').textContent = d.sheets.toLocaleString('en-US');
+  document.getElementById('views').textContent = d.views.toLocaleString('en-US');
+  const ids = new Set(d.rows.map(r => r.id));
+  document.getElementById('rows').innerHTML = d.rows.map(r => `<tr class="${known && !known.has(r.id) ? 'new' : ''}">
+    <td>${day(r.date)}</td>
+    <td class="h">${r.hours.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} h</td>
+    <td><code>${esc(r.id)}…</code>${r.you ? '<span class="you">you</span>' : ''}</td></tr>`).join('');
+  known = ids;
+  const t = new Date(d.at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' });
+  document.getElementById('meta').textContent = `Updated ${t} IST. Refreshes every minute while this tab is open.`;
+}
+
+// poll only while visible, so an idle tab doesn't spend the database's free quota
+let timer = null;
+const start = () => { if (!timer) { load(); timer = setInterval(load, 60000); } };
+const stop = () => { clearInterval(timer); timer = null; };
+document.addEventListener('visibilitychange', () => document.hidden ? stop() : start());
+start();
+</script>
+</body>
+</html>
