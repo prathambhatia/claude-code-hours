@@ -1,11 +1,12 @@
 import fs from 'node:fs';
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { historyPath, readHistory } from './history.js';
 import { compute, hours } from './compute.js';
 import { buildPayload, encode } from './payload.js';
 
 const SITE = process.env.CLAUDE_CODE_HOURS_URL || 'https://claude-code-hours.vercel.app/';
-const VERSION = '0.1.1';
+const VERSION = '0.1.2';
 
 const HELP = `claude-code-hours - how many hours you've spent in Claude Code
 
@@ -45,11 +46,11 @@ function openUrl(url) {
 }
 
 // Saves only the aggregate payload; returns null on any failure so the caller can fall back.
-async function shortLink(payload) {
+async function shortLink(payload, uid) {
   try {
     const res = await fetch(new URL('api/r', SITE), {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'user-agent': `claude-code-hours/${VERSION}` },
+      headers: { 'content-type': 'application/json', 'user-agent': `claude-code-hours/${VERSION}`, 'x-cch-uid': uid },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(8000),
     });
@@ -102,8 +103,10 @@ export async function main(argv = process.argv.slice(2)) {
   const privateUrl = `${SITE}#d=${encode(payload)}`;
   let url = privateUrl, note = 'The numbers travel inside the link; nothing was saved online.';
   if (!flags.has('--private')) {
-    const short = await shortLink(payload);
-    if (short) { url = short; note = 'Saved your totals (not your prompts) for 90 days. Use --private to skip that.'; }
+    // same person, same first prompt: the ranking keeps one entry per history, not per run
+    const uid = createHash('sha256').update(`claude-code-hours:${agg.firstTs}`).digest('hex');
+    const short = await shortLink(payload, uid);
+    if (short) { url = short; note = 'Saved your totals (not your prompts) for 90 days and added your hours to the anonymous ranking. Use --private to skip both.'; }
     else note = 'Couldn\'t make a short link, so the numbers travel inside this longer one instead.';
   }
   const opened = !flags.has('--no-open') && await openUrl(url);

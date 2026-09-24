@@ -1,6 +1,6 @@
 {
   "name": "claude-code-hours",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "See how many hours you've spent in Claude Code. Counted on your own computer; nothing is uploaded.",
   "type": "module",
   "bin": {

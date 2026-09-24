@@ -123,3 +123,19 @@ plus `:total` versions. No ids, IPs or payloads are attached. Read them with `np
   expired or bad id still count; `--private` runs and home-page visits aren't counted at all.
 - **Revisit if** views ever threaten the free tier (about 150k views a month uses a third of it):
   re-enable caching on `/r/` and count from the preview image or a beacon instead.
+
+## 10. Anonymous ranking, shown from 100 people (added 24/09/2026)
+
+Short-link runs add `sha256("claude-code-hours:" + first prompt timestamp in ms)` and the latest
+total hours to a Redis sorted set (`rank:hours`). `GET /api/r` returns how many people have more
+hours and the set size; the page shows "Top X% of Claude Code users" only when the set has at least
+`RANK_MIN = 100` entries (`site/index.html`).
+
+- **The hash is a stable pseudonymous id, not a random one.** Anyone who knows a person's exact first
+  prompt time to the millisecond could compute it; in practice nobody does. It links a person's
+  re-runs to each other and nothing else.
+- **Totals can be faked.** Anyone can POST a made-up payload with a made-up hash. There's no way to
+  verify hours, so the ranking is for fun, not proof. Revisit if someone games the top of it.
+- **It starts empty.** Runs from 0.1.0 and 0.1.1 sent no hash and are not ranked.
+- **Rejected in the same round:** personality labels, pop-culture comparisons and a GitHub README
+  badge were built and previewed, then removed at the owner's request.

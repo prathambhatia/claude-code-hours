@@ -47,6 +47,7 @@ export function compute(rows, now = Date.now()) {
   }
 
   return {
+    firstTs: rows[0].t,
     first: dayKey(rows[0].t),
     last: dayKey(rows[rows.length - 1].t),
     today: dayKey(now),

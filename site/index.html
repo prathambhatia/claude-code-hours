@@ -249,6 +249,8 @@ h3 { font-size: 17px; line-height: 32px; margin: 0 0 8px; font-weight: 700; }
 .cmd-copy:hover { color: var(--ink); }
 .cmd-copy .i-done, .cmd-copy.done .i-copy { display: none; }
 .cmd-copy.done .i-done { display: block; color: var(--ink); }
+.rank { margin: 12px 0 0; color: var(--stamp); font-weight: 800; font-size: 22px; font-variation-settings: "wdth" 110; }
+.rank small { display: block; color: var(--ink-2); font-weight: 400; font-size: 15px; line-height: 24px; font-variation-settings: "wdth" 100; }
 [hidden] { display: none !important; }
 
 @media (max-width: 640px) {
@@ -283,6 +285,7 @@ h3 { font-size: 17px; line-height: 32px; margin: 0 0 8px; font-weight: 700; }
       <div>
         <div class="stamp" role="img" id="stamp"></div>
         <p class="stamp-caption" id="stamp-caption"></p>
+        <p class="rank" id="rank" hidden></p>
         <div class="cta">
           <span class="cta-label">Find out yours</span>
           <div class="cmd">
@@ -518,12 +521,33 @@ function render(D) {
   $('#projects').innerHTML = rows.map(r => `<li class="${r.other ? 'other' : ''}"><span class="name" title="${esc(r.n)}">${esc(r.n)}</span><span class="track"><span class="fill" style="display:block;width:${(r.h / pmax) * 100}%"></span></span><span class="hrs">${fmt(r.h)} h</span></li>`).join('');
 
   renderClock(D, dayKeys);
+  renderExtras(D);
 }
 
 
 const MONFULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const clock = m => `${(Math.floor(m / 60) % 12) || 12}:${String(m % 60).padStart(2, '0')} ${m < 720 ? 'AM' : 'PM'}`;
 const hr12 = h => `${h % 12 || 12} ${h < 12 ? 'AM' : 'PM'}`;
+/* ranking: shown only once enough people are counted for it to mean something */
+const RANK_MIN = 100;
+function rankLine(D) {
+  let r = D.rank;
+  const q = new URLSearchParams(location.search).get('rank');   // local preview only: ?rank=above,n
+  if (q && location.hostname === 'localhost') { const [above, n] = q.split(',').map(Number); r = { above, n }; }
+  if (!r || r.n < RANK_MIN) return null;
+  const top = Math.max(1, Math.ceil((r.above + 1) / r.n * 100)), beats = Math.round((r.n - r.above - 1) / r.n * 100);
+  const n = r.n.toLocaleString('en-US');
+  return top <= 50
+    ? { head: `Top ${top}% of Claude Code users`, sub: `More hours than ${beats}% of the ${n} people who've checked` }
+    : { head: `More hours than ${beats}% of Claude Code users`, sub: `Out of ${n} people who've checked` };
+}
+
+function renderExtras(D) {
+  const r = rankLine(D);
+  $('#rank').hidden = !r;
+  if (r) $('#rank').innerHTML = `${r.head}<small>${r.sub}</small>`;
+}
+
 function renderClock(D, dayKeys) {
   const hod = D.hod, tot = hod.reduce((a, b) => a + b, 0) || 1;
   const peak = hod.indexOf(Math.max(...hod));
@@ -764,7 +788,7 @@ async function route() {
     catch { return fail('Couldn\u2019t load this timesheet', 'Check your connection and reload the page.'); }
     if (res.status === 404) return fail('This short link has expired or never existed', 'Short links last 90 days. Run the command again to get a fresh one.');
     if (!res.ok) return fail('Couldn\u2019t load this timesheet', 'The server didn\u2019t answer properly. Reload in a minute, or run the command with --private to get a link that needs no server.');
-    try { DATA = expand(await res.json()); } catch { return fail(); }
+    try { const raw = await res.json(); DATA = expand(raw); DATA.rank = raw.rank || null; } catch { return fail(); }
     $('#keep-lede').textContent = 'This short link lasts 90 days from when it was made. The image below is drawn in your browser; download it to keep your result for good.';
     return showResult();
   }

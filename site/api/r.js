@@ -19,6 +19,8 @@ export async function POST(request) {
 
   const ip = (request.headers.get('x-forwarded-for') || 'unknown').split(',')[0].trim();
   const bucket = `rl:${ip}:${Math.floor(Date.now() / 36e5)}`;
+  // anonymous per-person key from the CLI (a hash), so re-runs replace rather than add to the ranking
+  const uid = /^[a-f0-9]{64}$/.test(request.headers.get('x-cch-uid') || '') ? request.headers.get('x-cch-uid') : null;
   const id = Array.from({ length: 7 }, () => ALPHABET[randomInt(ALPHABET.length)]).join('');
   try {
     const [count] = await redis([['INCR', bucket], ['EXPIRE', bucket, '3600']]);
@@ -26,6 +28,7 @@ export async function POST(request) {
     const [saved] = await redis([
       ['SET', `r:${id}`, JSON.stringify(p), 'EX', String(TTL), 'NX'],
       ['INCR', `stats:created:${istDay()}`], ['INCR', 'stats:created:total'],
+      ...(uid ? [['ZADD', 'rank:hours', String(p.t / 10), uid]] : []),
     ]);
     if (saved !== 'OK') return json({ error: 'try again' }, 503);
   } catch { return json({ error: 'store unavailable' }, 503); }
@@ -38,7 +41,10 @@ export async function GET(request) {
   try {
     const [value] = await redis([['GET', `r:${id}`]]);
     if (!value) return json({ error: 'not found' }, 404, { 'cache-control': 'public, s-maxage=300' });
+    const p = JSON.parse(value);
+    const [above, n] = await redis([['ZCOUNT', 'rank:hours', `(${p.t / 10}`, '+inf'], ['ZCARD', 'rank:hours']]);
+    p.rank = { above: Number(above) || 0, n: Number(n) || 0 };
     // cached at the edge so repeat views of a popular link don't hit the database
-    return new Response(value, { headers: { 'content-type': 'application/json', 'cache-control': 'public, s-maxage=86400' } });
+    return new Response(JSON.stringify(p), { headers: { 'content-type': 'application/json', 'cache-control': 'public, s-maxage=86400' } });
   } catch { return json({ error: 'store unavailable' }, 503); }
 }
