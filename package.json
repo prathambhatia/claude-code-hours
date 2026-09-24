@@ -17,7 +17,8 @@
   "scripts": {
     "build": "node scripts/build.js",
     "test": "node --test test/*.test.js",
-    "prepack": "npm run build && npm test"
+    "prepack": "npm run build && npm test",
+    "stats": "node scripts/stats.js"
   },
   "keywords": [
     "claude",

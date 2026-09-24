@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto';
 import { validPayload } from './_payload.js';
-import { redis, ID } from './_store.js';
+import { redis, ID, istDay } from './_store.js';
 
 const TTL = 90 * 24 * 3600;      // short links last 90 days
 const MAX_BODY = 16 * 1024;
@@ -23,7 +23,10 @@ export async function POST(request) {
   try {
     const [count] = await redis([['INCR', bucket], ['EXPIRE', bucket, '3600']]);
     if (count > PER_HOUR) return json({ error: 'slow down' }, 429);
-    const [saved] = await redis([['SET', `r:${id}`, JSON.stringify(p), 'EX', String(TTL), 'NX']]);
+    const [saved] = await redis([
+      ['SET', `r:${id}`, JSON.stringify(p), 'EX', String(TTL), 'NX'],
+      ['INCR', `stats:created:${istDay()}`], ['INCR', 'stats:created:total'],
+    ]);
     if (saved !== 'OK') return json({ error: 'try again' }, 503);
   } catch { return json({ error: 'store unavailable' }, 503); }
   return json({ id, expiresInDays: 90 }, 201);

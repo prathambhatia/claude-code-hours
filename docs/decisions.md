@@ -107,3 +107,19 @@ and `site/api/og.js` draws the card with `satori` + `@resvg/resvg-js`.
   button links to the home page for those and downloads the image for the user to attach.
 - **LinkedIn cuts the pre-filled post text at `?` and `#`**, so the button strips both characters.
 - Each preview costs one database read on a cache miss; images are cached at the edge for a day.
+
+## 9. Anonymous usage counters, server-side only (added 24/09/2026)
+
+To know whether anyone uses this, the server keeps plain daily counts in Redis:
+`stats:created:<IST date>` (short links made) and `stats:views:<IST date>` (short-link page loads),
+plus `:total` versions. No ids, IPs or payloads are attached. Read them with `npm run stats`.
+
+- **No analytics script, deliberately.** Vercel Web Analytics was considered. It's cookieless, but it
+  adds a script, and ad blockers used by much of this audience block it, so it undercounts.
+- **`/r/<id>` pages are no longer edge-cached** (`no-store`) so every load reaches the counter. That
+  costs a function run and 3 Redis commands per view instead of a cached response.
+- **What these numbers get wrong:** the owner's own views count; bots are filtered only by a
+  user-agent regex (`isBot` in `site/api/_store.js`), so unusual crawlers slip through; views of an
+  expired or bad id still count; `--private` runs and home-page visits aren't counted at all.
+- **Revisit if** views ever threaten the free tier (about 150k views a month uses a third of it):
+  re-enable caching on `/r/` and count from the preview image or a beacon instead.

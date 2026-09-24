@@ -1,4 +1,4 @@
-import { load, summary } from './_store.js';
+import { redis, ID, istDay, isBot, summary } from './_store.js';
 
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -8,8 +8,14 @@ export async function GET(request) {
   const id = url.searchParams.get('id') || '';
   const html = await (await fetch(`${url.origin}/`)).text();
   let p = null;
-  try { p = await load(id); } catch { /* the page itself reports the problem */ }
-  if (!p) return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, s-maxage=300' } });
+  if (ID.test(id)) {
+    // not cached, so every real page load is counted; preview crawlers and scripts are skipped
+    const count = isBot(request) ? [] : [['INCR', `stats:views:${istDay()}`], ['INCR', 'stats:views:total']];
+    try { const [value] = await redis([['GET', `r:${id}`], ...count]); p = value ? JSON.parse(value) : null; }
+    catch { /* the page itself reports the problem */ }
+  }
+  const headers = { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' };
+  if (!p) return new Response(html, { headers });
 
   const s = summary(p);
   const title = `${s.total} hours in Claude Code`;
@@ -25,5 +31,5 @@ export async function GET(request) {
 <meta name="twitter:card" content="summary_large_image">
 <!--/og-->`;
   const out = html.replace(/<!--og-->[\s\S]*?<!--\/og-->/, tags).replace(/<title>[^<]*<\/title>/, `<title>${esc(title)}</title>`);
-  return new Response(out, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, s-maxage=86400' } });
+  return new Response(out, { headers });
 }

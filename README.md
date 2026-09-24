@@ -30,6 +30,9 @@ No prompts to answer, no files to pick.
 | `--no-open` | Prints the link instead of opening a browser. |
 | `--json` | Prints the summary as JSON and does nothing else. |
 
+The site keeps two anonymous daily counts: how many short links were made and how many times
+short-link pages were opened. Just the numbers, nothing about who.
+
 Folder names show on the page and on anyone's copy of your link, so check them before you share.
 The downloadable image doesn't include them.
 

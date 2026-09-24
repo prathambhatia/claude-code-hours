@@ -10,6 +10,11 @@ export async function redis(commands) {
   return (await res.json()).map(r => r.result);
 }
 
+// Day key in IST, the owner's timezone, for the anonymous daily counters.
+export const istDay = (t = Date.now()) => new Date(t + 5.5 * 36e5).toISOString().slice(0, 10);
+const BOT = /bot|crawl|spider|slurp|preview|linkedin|facebookexternalhit|embedly|whatsapp|telegram|discord|slack|twitter|curl|wget|python|node-fetch|headless/i;
+export const isBot = request => BOT.test(request.headers.get('user-agent') || '');
+
 export async function load(id) {
   if (!ID.test(id)) return null;
   const [value] = await redis([['GET', `r:${id}`]]);
