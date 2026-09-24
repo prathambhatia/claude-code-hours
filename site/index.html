@@ -6,6 +6,15 @@
 <title>Claude Code Hours</title>
 <meta name="description" content="See how many hours you've spent in Claude Code. Run one command; it's counted on your own computer and nothing is uploaded.">
 <meta name="referrer" content="no-referrer">
+<!--og-->
+<meta property="og:type" content="website">
+<meta property="og:title" content="How many hours have you spent in Claude Code?">
+<meta property="og:description" content="Run npx claude-code-hours. It's counted on your own computer from Claude Code's own log.">
+<meta property="og:image" content="https://claude-code-hours.vercel.app/api/og">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<!--/og-->
 <link rel="stylesheet" href="fonts/fonts.css">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='3' width='26' height='26' rx='4' fill='none' stroke='%23B3261E' stroke-width='3'/%3E%3Cpath d='M16 9v8l5 3' fill='none' stroke='%23B3261E' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
@@ -623,17 +632,22 @@ let DATA = null;
 /* LinkedIn can't take an image through a link, so save the card first and open a pre-written post */
 $('#linkedin').addEventListener('click', () => {
   const S = window.__stats;
+  // short links carry a preview card; a private #d= link can't, and LinkedIn cuts text at ? and #
+  const short = location.pathname.startsWith('/r/');
+  const link = short ? location.href : location.origin + '/';
   const text = [
     `Turns out I've spent ${Math.round(DATA.total).toLocaleString('en-US')} hours in Claude Code since ${nice(DATA.first)} 😅`,
     '',
     `Longest sitting: ${S.lh}h ${S.lm}m. ${S.late}% of it after 10 PM. ${S.best} days in a row at one point.`,
     '',
-    `Curious what yours looks like? Run npx claude-code-hours`,
-    location.href,
-  ].join('\n');
-  $('#download').click();
+    'Find yours with npx claude-code-hours',
+    link,
+  ].join('\n').replace(/[?#]/g, '');
+  if (!short) $('#download').click();
   window.open(`https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(text)}`, '_blank', 'noopener');
-  $('#copy-status').textContent = 'Your image was downloaded. Attach it to the post in LinkedIn.';
+  $('#copy-status').textContent = short
+    ? 'LinkedIn shows your card under the post once the link loads.'
+    : 'Your image was downloaded. Attach it to the post in LinkedIn.';
 });
 $('#copy').addEventListener('click', async () => {
   const text = `I've spent ${Math.round(DATA.total).toLocaleString('en-US')} hours in Claude Code since ${nice(DATA.first)}. ${location.href}`;

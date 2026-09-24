@@ -1,24 +1,14 @@
 import { randomInt } from 'node:crypto';
 import { validPayload } from './_payload.js';
+import { redis, ID } from './_store.js';
 
 const TTL = 90 * 24 * 3600;      // short links last 90 days
 const MAX_BODY = 16 * 1024;
 const PER_HOUR = 20;             // new links per IP per hour
 const ALPHABET = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const ID = /^[a-km-np-zA-HJ-NP-Z2-9]{7}$/;
 
 const json = (body, status = 200, headers = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
-
-async function redis(commands) {
-  const res = await fetch(`${process.env.KV_REST_API_URL}/pipeline`, {
-    method: 'POST',
-    headers: { authorization: `Bearer ${process.env.KV_REST_API_TOKEN}` },
-    body: JSON.stringify(commands),
-  });
-  if (!res.ok) throw new Error(`store ${res.status}`);
-  return (await res.json()).map(r => r.result);
-}
 
 export async function POST(request) {
   const text = await request.text();

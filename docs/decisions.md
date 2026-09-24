@@ -93,3 +93,17 @@ name renders as text (checked manually on 24/09/2026).
   (server) and `expand()` in `site/index.html`. Change one, change all three, and bump `v`.
 - **`preview.html` in the repo root is gitignored on purpose.** It has one person's real stats and
   folder names baked in.
+
+## 8. Link previews are rendered on the server (added 24/09/2026)
+
+LinkedIn can't attach an image from a share link; it only shows the `og:image` of a URL in the post.
+So `/r/<id>` is served by `site/api/page.js`, which adds preview tags pointing at `/api/og?id=<id>`,
+and `site/api/og.js` draws the card with `satori` + `@resvg/resvg-js`.
+
+- **`@vercel/og` was tried and dropped.** Its 1.0.3 Node build loads `./hb.wasm` relative to the
+  working directory and the file isn't in the package, so it crashed locally and would likely crash in
+  a function bundle.
+- **Private `#d=` links get no personal preview.** Crawlers never see the fragment. The LinkedIn
+  button links to the home page for those and downloads the image for the user to attach.
+- **LinkedIn cuts the pre-filled post text at `?` and `#`**, so the button strips both characters.
+- Each preview costs one database read on a cache miss; images are cached at the edge for a day.

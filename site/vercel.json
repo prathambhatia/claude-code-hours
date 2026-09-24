@@ -44,7 +44,7 @@
   "rewrites": [
     {
       "source": "/r/:id",
-      "destination": "/"
+      "destination": "/api/page?id=:id"
     }
   ]
 }
