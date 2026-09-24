@@ -312,7 +312,8 @@ h3 { font-size: 17px; line-height: 32px; margin: 0 0 8px; font-weight: 700; }
       <p class="lede" id="keep-lede"></p>
       <img class="share-card" id="card" alt="">
       <div class="copy-row">
-        <button class="btn" type="button" id="download">Download image</button>
+        <button class="btn" type="button" id="linkedin">Share on LinkedIn</button>
+        <button class="btn secondary" type="button" id="download">Download image</button>
         <button class="btn secondary" type="button" id="copy">Copy my result</button>
         <output id="copy-status" aria-live="polite"></output>
       </div>
@@ -619,6 +620,21 @@ function showCard(DATA) { drawCard(DATA).then(cv => {
 
 /* copy */
 let DATA = null;
+/* LinkedIn can't take an image through a link, so save the card first and open a pre-written post */
+$('#linkedin').addEventListener('click', () => {
+  const S = window.__stats;
+  const text = [
+    `Turns out I've spent ${Math.round(DATA.total).toLocaleString('en-US')} hours in Claude Code since ${nice(DATA.first)} 😅`,
+    '',
+    `Longest sitting: ${S.lh}h ${S.lm}m. ${S.late}% of it after 10 PM. ${S.best} days in a row at one point.`,
+    '',
+    `Curious what yours looks like? Run npx claude-code-hours`,
+    location.href,
+  ].join('\n');
+  $('#download').click();
+  window.open(`https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+  $('#copy-status').textContent = 'Your image was downloaded. Attach it to the post in LinkedIn.';
+});
 $('#copy').addEventListener('click', async () => {
   const text = `I've spent ${Math.round(DATA.total).toLocaleString('en-US')} hours in Claude Code since ${nice(DATA.first)}. ${location.href}`;
   try { await navigator.clipboard.writeText(text); $('#copy-status').textContent = 'Copied to clipboard.'; }
