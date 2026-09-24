@@ -55,7 +55,9 @@ async function shortLink(payload) {
     });
     if (!res.ok) return null;
     const { id } = await res.json();
-    return /^[A-Za-z0-9]{7}$/.test(id) ? new URL(`r/${id}`, SITE).href : null;
+    if (!/^[A-Za-z0-9]{7}$/.test(id)) return null;
+    await fetch(new URL(`r/${id}/card.png`, SITE), { signal: AbortSignal.timeout(8000) }).catch(() => {});
+    return new URL(`r/${id}`, SITE).href;
   } catch { return null; }
 }
 

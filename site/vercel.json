@@ -43,6 +43,14 @@
   ],
   "rewrites": [
     {
+      "source": "/r/:id/card.png",
+      "destination": "/api/og?id=:id"
+    },
+    {
+      "source": "/card.png",
+      "destination": "/api/og"
+    },
+    {
       "source": "/r/:id",
       "destination": "/api/page?id=:id"
     }

@@ -20,15 +20,23 @@ export async function GET(request) {
   const s = summary(p);
   const title = `${s.total} hours in Claude Code`;
   const desc = `Longest sitting ${s.sitting}. ${s.late} after 10 PM. ${s.streak} in a row. Find yours: npx claude-code-hours`;
+  const img = `${url.origin}/r/${id}/card.png`;
   const tags = `<!--og-->
 <meta property="og:type" content="website">
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(desc)}">
 <meta property="og:url" content="${esc(`${url.origin}/r/${id}`)}">
-<meta property="og:image" content="${esc(`${url.origin}/api/og?id=${id}`)}">
+<meta property="og:site_name" content="Claude Code Hours">
+<meta property="og:image" content="${esc(img)}">
+<meta property="og:image:secure_url" content="${esc(img)}">
+<meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${esc(`Timesheet stamped with ${s.total} hours in Claude Code`)}">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${esc(title)}">
+<meta name="twitter:description" content="${esc(desc)}">
+<meta name="twitter:image" content="${esc(img)}">
 <!--/og-->`;
   const out = html.replace(/<!--og-->[\s\S]*?<!--\/og-->/, tags).replace(/<title>[^<]*<\/title>/, `<title>${esc(title)}</title>`);
   return new Response(out, { headers });

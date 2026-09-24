@@ -64,5 +64,5 @@ export async function GET(request) {
   }
   const svg = await satori(tree, { width: 1200, height: 630, fonts: await getFonts(url.origin) });
   const png = new Resvg(svg, { fitTo: { mode: 'width', value: 1200 } }).render().asPng();
-  return new Response(png, { headers: { 'content-type': 'image/png', 'cache-control': cache } });
+  return new Response(png, { headers: { 'content-type': 'image/png', 'content-length': String(png.length), 'cache-control': cache } });
 }
