@@ -416,7 +416,7 @@ function render(D) {
     for (let d = new Date(s.getFullYear(), s.getMonth(), 1); d <= e; d.setMonth(d.getMonth() + 1)) mk.push(key(d).slice(0, 7));
   }
   const mv = mk.map(m => Math.round((months[m] || 0) * 10) / 10);
-  const max = Math.max(...mv), peak = mv.indexOf(max);
+  const max = Math.max(...mv);
   const bw = 44, gap = 16, H = 200, top = 24, W = mk.length * (bw + gap);
   const svg = el('svg', { width: W, height: H + 32, role: 'img', 'aria-label': 'Hours by month: ' + mk.map((m, i) => `${MON[+m.slice(5) - 1]} ${m.slice(0, 4)} ${mv[i]} hours`).join(', ') });
   el('line', { x1: 0, x2: W - gap, y1: H, y2: H, class: 'axis' }, svg);
@@ -430,7 +430,7 @@ function render(D) {
     hit.addEventListener('mouseenter', on); hit.addEventListener('mouseleave', off);
     hit.addEventListener('focus', on); hit.addEventListener('blur', off);
     el('text', { x: x + bw / 2, y: H + 20, 'text-anchor': 'middle' }, svg).textContent = MON[+m.slice(5) - 1] + (m.endsWith('-01') || i === 0 ? ' ’' + m.slice(2, 4) : '');
-    if (i === peak || i === mk.length - 1) el('text', { x: x + bw / 2, y: H - h - 6, 'text-anchor': 'middle', class: 'val' }, svg).textContent = fmt(mv[i], 0);
+    el('text', { x: x + bw / 2, y: H - h - 6, 'text-anchor': 'middle', class: 'val' }, svg).textContent = fmt(mv[i], 0);
   });
   $('#months').replaceChildren(svg);
 
