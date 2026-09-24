@@ -21,6 +21,8 @@ export async function POST(request) {
   const bucket = `rl:${ip}:${Math.floor(Date.now() / 36e5)}`;
   // anonymous per-person key from the CLI (a hash), so re-runs replace rather than add to the ranking
   const uid = /^[a-f0-9]{64}$/.test(request.headers.get('x-cch-uid') || '') ? request.headers.get('x-cch-uid') : null;
+  let name = null;
+  try { name = decodeURIComponent(request.headers.get('x-cch-name') || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 60) || null; } catch {}
   const id = Array.from({ length: 7 }, () => ALPHABET[randomInt(ALPHABET.length)]).join('');
   try {
     const [count] = await redis([['INCR', bucket], ['EXPIRE', bucket, '3600']]);
@@ -28,7 +30,7 @@ export async function POST(request) {
     const [saved] = await redis([
       ['SET', `r:${id}`, JSON.stringify(p), 'EX', String(TTL), 'NX'],
       ['INCR', `stats:created:${istDay()}`], ['INCR', 'stats:created:total'],
-      ...(uid ? [['ZADD', 'rank:hours', String(p.t / 10), uid], ['HSET', 'rank:seen', uid, istDay()]] : []),
+      ...(uid ? [['ZADD', 'rank:hours', String(p.t / 10), uid], ['HSET', 'rank:seen', uid, istDay()], ...(name ? [['HSET', 'rank:name', uid, name]] : [])] : []),
     ]);
     if (saved !== 'OK') return json({ error: 'try again' }, 503);
   } catch { return json({ error: 'store unavailable' }, 503); }

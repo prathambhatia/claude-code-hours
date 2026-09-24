@@ -1,12 +1,12 @@
 import fs from 'node:fs';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { historyPath, readHistory } from './history.js';
 import { compute, hours } from './compute.js';
 import { buildPayload, encode } from './payload.js';
 
 const SITE = process.env.CLAUDE_CODE_HOURS_URL || 'https://claude-code-hours.vercel.app/';
-const VERSION = '0.1.2';
+const VERSION = '0.1.3';
 
 const HELP = `claude-code-hours - how many hours you've spent in Claude Code
 
@@ -16,6 +16,7 @@ Usage: npx claude-code-hours [options]
   --no-open         print the link instead of opening the browser
   --json            print the aggregate data as JSON, don't open anything
   --hide-projects   leave project folder names out of the link
+  --anonymous       don't send your git name to the ranking
   -h, --help        show this help
   -v, --version     show the version
 
@@ -46,11 +47,20 @@ function openUrl(url) {
 }
 
 // Saves only the aggregate payload; returns null on any failure so the caller can fall back.
-async function shortLink(payload, uid) {
+// git's user.name, trimmed to something safe to store; null when git or the setting is missing
+function gitName() {
+  try {
+    const n = execFileSync('git', ['config', '--global', 'user.name'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000 });
+    const clean = n.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 60);
+    return clean || null;
+  } catch { return null; }
+}
+
+async function shortLink(payload, uid, name) {
   try {
     const res = await fetch(new URL('api/r', SITE), {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'user-agent': `claude-code-hours/${VERSION}`, 'x-cch-uid': uid },
+      headers: { 'content-type': 'application/json', 'user-agent': `claude-code-hours/${VERSION}`, 'x-cch-uid': uid, ...(name ? { 'x-cch-name': encodeURIComponent(name) } : {}) },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(8000),
     });
@@ -66,7 +76,7 @@ export async function main(argv = process.argv.slice(2)) {
   const flags = new Set(argv);
   if (flags.has('-h') || flags.has('--help')) return void console.log(HELP);
   if (flags.has('-v') || flags.has('--version')) return void console.log(VERSION);
-  const unknown = argv.filter(a => !['--no-open', '--json', '--hide-projects', '--private'].includes(a));
+  const unknown = argv.filter(a => !['--no-open', '--json', '--hide-projects', '--private', '--anonymous'].includes(a));
   if (unknown.length) { console.error(`Unknown option: ${unknown[0]}\n\n${HELP}`); process.exitCode = 2; return; }
 
   const file = historyPath();
@@ -101,15 +111,18 @@ export async function main(argv = process.argv.slice(2)) {
   console.log(lines.join('\n') + '\n');
 
   const privateUrl = `${SITE}#d=${encode(payload)}`;
-  let url = privateUrl, note = 'The numbers travel inside the link; nothing was saved online.';
+  let url = privateUrl, note = 'The numbers travel inside the link; nothing was saved online.', listed = null;
   if (!flags.has('--private')) {
     // same person, same first prompt: the ranking keeps one entry per history, not per run
     const uid = createHash('sha256').update(`claude-code-hours:${agg.firstTs}`).digest('hex');
-    const short = await shortLink(payload, uid);
-    if (short) { url = short; note = 'Saved your totals (not your prompts) for 90 days and added your hours to the anonymous ranking. Use --private to skip both.'; }
+    const name = flags.has('--anonymous') ? null : gitName();
+    const short = await shortLink(payload, uid, name);
+    if (short) { url = short; listed = name; note = 'This link stays up for 90 days. Use --private for a permanent link that isn\'t saved anywhere.'; }
     else note = 'Couldn\'t make a short link, so the numbers travel inside this longer one instead.';
   }
   const opened = !flags.has('--no-open') && await openUrl(url);
   console.log(`  ${opened ? 'Opened' : 'Your timesheet:'} ${url === privateUrl && opened ? 'your timesheet in the browser.' : url}`);
-  console.log(dim(`  ${note}\n`));
+  console.log(dim(`  ${note}`));
+  if (listed) console.log(dim(`  Listed as "${listed}" on the ranking.`));
+  console.log('');
 }

@@ -31,9 +31,9 @@ No prompts to answer, no files to pick.
 | `--json` | Prints the summary as JSON and does nothing else. |
 
 Short links also add your total hours to an anonymous ranking, so the page can say "Top 12% of
-Claude Code users" once 100 or more people have taken part. The ranking stores only a one-way hash
-of your first prompt's timestamp (so re-running replaces your entry instead of adding one) and your
-latest total. `--private` runs are never ranked.
+Claude Code users" once 100 or more people have taken part. The ranking stores a one-way hash
+of your first prompt's timestamp (so re-running replaces your entry instead of adding one), your
+latest total, and your git `user.name` (the terminal shows it; `--anonymous` leaves it out). `--private` runs are never ranked.
 
 The site keeps two anonymous daily counts: how many short links were made and how many times
 short-link pages were opened. Just the numbers, nothing about who.
