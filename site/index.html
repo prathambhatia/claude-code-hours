@@ -157,7 +157,7 @@ svg .val { fill: var(--ink); font-weight: 600; font-size: 12px; }
 
 .projects { list-style: none; padding: 0; margin: 0; max-width: 720px; }
 .projects li {
-  display: grid; grid-template-columns: minmax(120px, 220px) 1fr 72px; gap: 16px; align-items: center;
+  display: grid; grid-template-columns: minmax(120px, 220px) 1fr 96px; gap: 16px; align-items: center;
 }
 .projects .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .projects .track { height: 12px; }
@@ -238,6 +238,17 @@ h3 { font-size: 17px; line-height: 32px; margin: 0 0 8px; font-weight: 700; }
   .weekdays li { grid-template-columns: 48px 1fr 64px; }
   .weekdays .track { grid-column: auto; grid-row: auto; margin: 0; }
 }
+.heat-year { font-size: 15px; line-height: 32px; margin: 8px 0 0; color: var(--ink-2); font-weight: 600; }
+.year-totals { margin-top: 8px; white-space: pre-wrap; font-variant-numeric: tabular-nums; }
+.year-totals:empty { display: none; }
+.cta { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 16px; }
+.cta-label { color: var(--ink-2); }
+.cmd { display: inline-flex; align-items: center; border: 2px solid var(--ink); border-radius: 6px; background: var(--paper-deep); }
+.cmd code { padding: 4px 4px 4px 14px; font-size: 18px; line-height: 32px; font-weight: 700; font-variation-settings: "wdth" 90; }
+.cmd-copy { display: grid; place-items: center; width: 40px; height: 40px; border: 0; background: transparent; color: var(--ink-2); cursor: pointer; border-radius: 4px; }
+.cmd-copy:hover { color: var(--ink); }
+.cmd-copy .i-done, .cmd-copy.done .i-copy { display: none; }
+.cmd-copy.done .i-done { display: block; color: var(--ink); }
 [hidden] { display: none !important; }
 
 @media (max-width: 640px) {
@@ -272,6 +283,16 @@ h3 { font-size: 17px; line-height: 32px; margin: 0 0 8px; font-weight: 700; }
       <div>
         <div class="stamp" role="img" id="stamp"></div>
         <p class="stamp-caption" id="stamp-caption"></p>
+        <div class="cta">
+          <span class="cta-label">Find out yours</span>
+          <div class="cmd">
+            <code>npx claude-code-hours</code>
+            <button type="button" class="cmd-copy" data-cmd="npx claude-code-hours" aria-label="Copy command">
+              <svg class="i-copy" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              <svg class="i-done" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -299,6 +320,7 @@ h3 { font-size: 17px; line-height: 32px; margin: 0 0 8px; font-weight: 700; }
     <section aria-labelledby="h-month">
       <h2 id="h-month">Hours by month</h2>
       <div class="chart-wrap" id="months"></div>
+      <p class="lede year-totals" id="year-totals"></p>
     </section>
 
     <section aria-labelledby="h-days">
@@ -417,49 +439,74 @@ function render(D) {
   }
   const mv = mk.map(m => Math.round((months[m] || 0) * 10) / 10);
   const max = Math.max(...mv);
-  const bw = 44, gap = 16, H = 200, top = 24, W = mk.length * (bw + gap);
+  // bars shrink to fit the page; long histories label only January and drop per-bar numbers
+  const avail = Math.max(280, $('#months').clientWidth || 880);
+  const slot = Math.max(12, Math.min(60, avail / mk.length));
+  const bw = Math.round(slot * 0.72), gap = slot - bw, rad = Math.min(4, bw / 2);
+  const roomy = slot >= 34, H = 200, top = 24, W = mk.length * slot;
   const svg = el('svg', { width: W, height: H + 32, role: 'img', 'aria-label': 'Hours by month: ' + mk.map((m, i) => `${MON[+m.slice(5) - 1]} ${m.slice(0, 4)} ${mv[i]} hours`).join(', ') });
   el('line', { x1: 0, x2: W - gap, y1: H, y2: H, class: 'axis' }, svg);
   mk.forEach((m, i) => {
-    const x = i * (bw + gap), h = max ? (mv[i] / max) * (H - top) : 0;
+    const x = i * slot, h = max ? (mv[i] / max) * (H - top) : 0;
     const label = `${MON[+m.slice(5) - 1]} ${m.slice(0, 4)}`;
-    const hit = el('rect', { x: x - gap / 2, y: 0, width: bw + gap, height: H, class: 'hit', tabindex: 0, 'aria-label': `${label}: ${fmt(mv[i])} hours` }, svg);
-    const bar = el('path', { class: 'bar', d: h > 0 ? `M${x},${H} V${H - h + 4} q0,-4 4,-4 H${x + bw - 4} q4,0 4,4 V${H} Z` : '' }, svg);
-    const on = () => { bar.classList.add('active'); showTip(`<b>${label}</b><br>${fmt(mv[i])} h`, bar.getBBox ? hit : hit); };
+    const hit = el('rect', { x: x - gap / 2, y: 0, width: slot, height: H, class: 'hit', tabindex: 0, 'aria-label': `${label}: ${fmt(mv[i])} hours` }, svg);
+    const bar = el('path', { class: 'bar', d: h > 0 ? `M${x},${H} V${H - h + rad} q0,-${rad} ${rad},-${rad} H${x + bw - rad} q${rad},0 ${rad},${rad} V${H} Z` : '' }, svg);
+    const on = () => { bar.classList.add('active'); showTip(`<b>${label}</b><br>${fmt(mv[i])} h`, hit); };
     const off = () => { bar.classList.remove('active'); hideTip(); };
     hit.addEventListener('mouseenter', on); hit.addEventListener('mouseleave', off);
     hit.addEventListener('focus', on); hit.addEventListener('blur', off);
-    el('text', { x: x + bw / 2, y: H + 20, 'text-anchor': 'middle' }, svg).textContent = MON[+m.slice(5) - 1] + (m.endsWith('-01') || i === 0 ? ' ’' + m.slice(2, 4) : '');
-    el('text', { x: x + bw / 2, y: H - h - 6, 'text-anchor': 'middle', class: 'val' }, svg).textContent = fmt(mv[i], 0);
+    const jan = m.endsWith('-01');
+    if (roomy || jan || i === 0)
+      el('text', { x: x + bw / 2, y: H + 20, 'text-anchor': roomy ? 'middle' : 'start' }, svg).textContent =
+        roomy ? MON[+m.slice(5) - 1] + (jan || i === 0 ? ' ’' + m.slice(2, 4) : '') : (jan ? m.slice(0, 4) : `${MON[+m.slice(5) - 1]} ’${m.slice(2, 4)}`);
+    if (roomy || mv[i] === max) el('text', { x: x + bw / 2, y: H - h - 6, 'text-anchor': 'middle', class: 'val' }, svg).textContent = fmt(mv[i], 0);
   });
   $('#months').replaceChildren(svg);
+  $('#months').scrollLeft = $('#months').scrollWidth;
+  const years = {};
+  mk.forEach((m, i) => { years[m.slice(0, 4)] = (years[m.slice(0, 4)] || 0) + mv[i]; });
+  $('#year-totals').textContent = Object.keys(years).length > 1
+    ? Object.entries(years).map(([y, v]) => `${y}: ${fmt(v, 0)} h`).join('   ') : '';
 
-  /* heatmap: weeks as columns, Monday first */
-  const levels = [0, 1, 2, 4, 6, 8]; // hours thresholds
+  /* heatmap: weeks as columns, Monday first; one block per calendar year once history passes a year */
   const lvl = h => h <= 0 ? 0 : h < 1 ? 1 : h < 2 ? 2 : h < 4 ? 3 : h < 6 ? 4 : 5;
-  const start = parse(D.first); start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
-  const end = parse(D.last);
-  const cs = 13, cg = 3, left = 32, topH = 20;
-  const weeks = Math.ceil(((end - start) / 864e5 + 1) / 7);
-  const hs = el('svg', { width: left + weeks * (cs + cg), height: topH + 7 * (cs + cg), role: 'img', 'aria-label': `Daily hours heatmap from ${nice(D.first)} to ${nice(D.last)}. The table below lists every day.` });
-  ['Mon', '', 'Wed', '', 'Fri', '', 'Sun'].forEach((t, r) => { if (t) el('text', { x: 0, y: topH + r * (cs + cg) + 10 }, hs).textContent = t; });
-  let lastMonth = -1;
-  const cells = [];
-  for (let d = new Date(start), i = 0; d <= end; d.setDate(d.getDate() + 1), i++) {
-    const w = Math.floor(i / 7), r = i % 7, k = key(d);
-    if (d.getDate() <= 7 && r === 0 && d.getMonth() !== lastMonth) { lastMonth = d.getMonth(); el('text', { x: left + w * (cs + cg), y: 12 }, hs).textContent = MON[d.getMonth()]; }
-    if (k < D.first) continue;
-    const h = D.days[k] || 0;
-    const c = el('rect', { x: left + w * (cs + cg), y: topH + r * (cs + cg), width: cs, height: cs, class: 'cell', fill: `var(--h${lvl(h)})` }, hs);
-    c.dataset.k = k; c.dataset.h = h; cells.push(c);
+  const left = 32, topH = 20, cg = 3;
+  const heatWidth = Math.max(280, $('#heat').clientWidth || 880);
+  function heat(fromK, toK) {
+    const start = parse(fromK); start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+    const end = parse(toK);
+    const weeks = Math.ceil(((end - start) / 864e5 + 1) / 7);
+    const cs = Math.max(8, Math.min(13, Math.floor((heatWidth - left) / weeks) - cg));
+    const hs = el('svg', { width: left + weeks * (cs + cg), height: topH + 7 * (cs + cg), role: 'img', 'aria-label': `Daily hours from ${nice(fromK)} to ${nice(toK)}. The table below lists every day.` });
+    ['Mon', '', 'Wed', '', 'Fri', '', 'Sun'].forEach((t, r) => { if (t) el('text', { x: 0, y: topH + r * (cs + cg) + cs - 3 }, hs).textContent = t; });
+    let lastMonth = -1;
+    for (let d = new Date(start), i = 0; d <= end; d.setDate(d.getDate() + 1), i++) {
+      const w = Math.floor(i / 7), r = i % 7, k = key(d);
+      if (d.getDate() <= 7 && r === 0 && d.getMonth() !== lastMonth) { lastMonth = d.getMonth(); el('text', { x: left + w * (cs + cg), y: 12 }, hs).textContent = MON[d.getMonth()]; }
+      if (k < fromK) continue;
+      const h = D.days[k] || 0;
+      const c = el('rect', { x: left + w * (cs + cg), y: topH + r * (cs + cg), width: cs, height: cs, class: 'cell', fill: `var(--h${lvl(h)})` }, hs);
+      c.dataset.k = k; c.dataset.h = h;
+    }
+    hs.addEventListener('mouseover', e => {
+      const c = e.target.closest('.cell'); if (!c) return;
+      c.classList.add('active');
+      showTip(`<b>${nice(c.dataset.k)}</b><br>${+c.dataset.h ? fmt(+c.dataset.h) + ' h' : 'No prompts'}`, c);
+    });
+    hs.addEventListener('mouseout', e => { const c = e.target.closest('.cell'); if (c) c.classList.remove('active'); hideTip(); });
+    return hs;
   }
-  hs.addEventListener('mouseover', e => {
-    const c = e.target.closest('.cell'); if (!c) return;
-    c.classList.add('active');
-    showTip(`<b>${nice(c.dataset.k)}</b><br>${+c.dataset.h ? fmt(+c.dataset.h) + ' h' : 'No prompts'}`, c);
-  });
-  hs.addEventListener('mouseout', e => { const c = e.target.closest('.cell'); if (c) c.classList.remove('active'); hideTip(); });
-  $('#heat').replaceChildren(hs);
+  const y0 = +D.first.slice(0, 4), y1 = +D.last.slice(0, 4);
+  const blocks = [];
+  if ((parse(D.last) - parse(D.first)) / 864e5 < 366) blocks.push(heat(D.first, D.last));
+  else for (let y = y1; y >= y0; y--) {   // newest year first
+    const title = document.createElement('h3');
+    title.className = 'heat-year';
+    title.textContent = `${y}: ${fmt(years[y] || 0, 0)} h`;
+    blocks.push(title, heat(y === y0 ? D.first : `${y}-01-01`, y === y1 ? D.last : `${y}-12-31`));
+  }
+  $('#heat').replaceChildren(...blocks);
+  $('#heat').scrollLeft = $('#heat').scrollWidth;
   $('#heat-legend').innerHTML = 'Less ' + [0, 1, 2, 3, 4, 5].map(l => `<i style="background:var(--h${l})"></i>`).join('') + ' More <span style="margin-left:12px">(0, under 1, 1–2, 2–4, 4–6, 6+ h)</span>';
   $('#day-table tbody').innerHTML = dayKeys.slice().reverse().map(k => `<tr><td>${nice(k)}</td><td class="n">${fmt(D.days[k])}</td></tr>`).join('');
 
@@ -632,6 +679,11 @@ function showCard(DATA) { drawCard(DATA).then(cv => {
 
 /* copy */
 let DATA = null;
+document.querySelectorAll('.cmd-copy').forEach(b => b.addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(b.dataset.cmd); } catch { return; }
+  b.classList.add('done'); b.setAttribute('aria-label', 'Copied');
+  setTimeout(() => { b.classList.remove('done'); b.setAttribute('aria-label', 'Copy command'); }, 1600);
+}));
 /* LinkedIn can't take an image through a link, so save the card first and open a pre-written post */
 $('#linkedin').addEventListener('click', () => {
   const S = window.__stats;
