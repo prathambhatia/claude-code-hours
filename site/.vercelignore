@@ -1,0 +1,6 @@
+.env*
+.vercel
+.gitignore
+.agents
+.claude
+skills-lock.json
