@@ -46,5 +46,11 @@
       "source": "/r/:id",
       "destination": "/api/page?id=:id"
     }
-  ]
+  ],
+  "functions": {
+    "api/og.js": {
+      "includeFiles": "node_modules/harfbuzzjs/*.wasm",
+      "memory": 1024
+    }
+  }
 }
