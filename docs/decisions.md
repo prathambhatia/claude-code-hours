@@ -139,3 +139,29 @@ hours and the set size; the page shows "Top X% of Claude Code users" only when t
 - **It starts empty.** Runs from 0.1.0 and 0.1.1 sent no hash and are not ranked.
 - **Rejected in the same round:** personality labels, pop-culture comparisons and a GitHub README
   badge were built and previewed, then removed at the owner's request.
+
+## 11. `link:<id>` maps a short link back to a name, admin-only (added 24/09/2026)
+
+Short links (`r:<id>`) and the ranking (keyed by the pseudonymous `uid` from decision 10) were
+originally two unconnected keyspaces — an admin looking at a `/r/xxxxxxx` link someone shared had
+no way to find out whose it was. `POST /api/r` now also writes `link:<id> -> uid` (same 90-day TTL
+as the link itself) whenever a request carries a `uid`. `GET /api/admin?id=<id>` (owner-key
+authenticated, same as the ranking view) resolves it: `link:<id>` → `uid` → `rank:name`.
+
+- **The mapping is admin-only, never public.** `/api/r` (the public GET a link's own page uses)
+  and `/api/page` are untouched — a stranger who opens someone's share link still gets no name.
+  Only the `x-admin-key`-gated `/api/admin` endpoint can resolve one.
+- **What this knowingly accepts:** a short link is no longer just an anonymous stats summary to
+  the owner — if the runner's git `user.name` was captured (decision, commit `5ed9204`), the owner
+  can now tie a specific `/r/<id>` link to a specific name. This is a real, if small, privacy
+  narrowing versus decision 4's "a summary isn't tied to a person" framing; it now can be, by the
+  site owner, on request.
+- **Only covers links created from here on.** The mapping is written at creation time, so the 23
+  short links that predated this change have no `link:<id>` entry and stay unresolvable — `GET
+  /api/admin?id=<id>` returns `{ id, name: null }` for those, same as for a run with no `uid` or
+  no captured name.
+- **No UI yet.** The lookup is a raw API call (`curl -H "x-admin-key: ..." ".../api/admin?id=xxx"`);
+  `site/admin.html` still only shows the aggregate ranking table.
+
+**Revisit if:** the owner wants this searchable from `site/admin.html` directly, or if the privacy
+narrowing above ever needs disclosing more prominently than decision 4 already does.

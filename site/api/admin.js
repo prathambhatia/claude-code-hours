@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
-import { redis } from './_store.js';
+import { redis, ID } from './_store.js';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
@@ -10,9 +10,20 @@ function authorised(request) {
   return want.length >= 32 && got.length === want.length && timingSafeEqual(got, want);
 }
 
+// Owner-only: trace a short link (/r/<id>) back to the name behind it, via link:<id> -> uid -> rank:name.
+async function whois(id) {
+  if (!ID.test(id)) return json({ error: 'not found' }, 404);
+  const [uid] = await redis([['GET', `link:${id}`]]);
+  if (!uid) return json({ id, name: null }); // no ranked run behind this link (no uid, or expired)
+  const [name] = await redis([['HGET', 'rank:name', uid]]);
+  return json({ id, name: name || null });
+}
+
 // Owner-only view of the ranking. Returns shortened ids, never the full hash.
 export async function GET(request) {
   if (!authorised(request)) return json({ error: 'not allowed' }, 401);
+  const id = new URL(request.url).searchParams.get('id');
+  if (id) return whois(id);
   const [ranked, seen, names, created, views] = await redis([
     ['ZRANGE', 'rank:hours', '0', '-1', 'REV', 'WITHSCORES'],
     ['HGETALL', 'rank:seen'],
