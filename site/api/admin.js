@@ -24,11 +24,12 @@ export async function GET(request) {
   if (!authorised(request)) return json({ error: 'not allowed' }, 401);
   const id = new URL(request.url).searchParams.get('id');
   if (id) return whois(id);
-  const [ranked, seen, names, links, created, views] = await redis([
+  const [ranked, seen, names, links, hidden, created, views] = await redis([
     ['ZRANGE', 'rank:hours', '0', '-1', 'REV', 'WITHSCORES'],
     ['HGETALL', 'rank:seen'],
     ['HGETALL', 'rank:name'],
     ['HGETALL', 'rank:link'],
+    ['SMEMBERS', 'rank:hidden'],
     ['GET', 'stats:created:total'],
     ['GET', 'stats:views:total'],
   ]);
@@ -38,20 +39,27 @@ export async function GET(request) {
   for (let i = 0; i < (names || []).length; i += 2) who[names[i]] = names[i + 1];
   const lastLink = {};
   for (let i = 0; i < (links || []).length; i += 2) lastLink[links[i]] = links[i + 1];
+  // people who asked not to have their link (and the project names behind it) shown here
+  const hide = new Set(hidden || []);
   const uids = [];
   for (let i = 0; i < ranked.length; i += 2) uids.push(ranked[i]);
-  // rank:link keeps the latest id even after that short link's 90-day TTL expires,
-  // so confirm each one still resolves before showing it as live
-  const withLink = uids.map((uid, i) => ({ uid, i, link: lastLink[uid] })).filter(r => r.link);
-  const exists = withLink.length ? await redis(withLink.map(r => ['EXISTS', `r:${r.link}`])) : [];
-  const live = new Set(withLink.filter((r, i) => Number(exists[i]) === 1).map(r => r.i));
-  const rows = uids.map((uid, i) => ({
-    id: uid.slice(0, 10),
-    name: who[uid] || null,
-    hours: Number(ranked[i * 2 + 1]),
-    date: last[uid] || null,
-    link: live.has(i) ? lastLink[uid] : null,
-    you: uid === process.env.OWNER_UID,
-  }));
+  // rank:link keeps the latest id even after that short link's 90-day TTL expires, so
+  // fetching the payload doubles as the liveness check (a dead id just returns null)
+  const withLink = uids.map((uid, i) => ({ uid, i, link: lastLink[uid] })).filter(r => r.link && !hide.has(r.uid));
+  const payloads = withLink.length ? await redis(withLink.map(r => ['GET', `r:${r.link}`])) : [];
+  const byIndex = new Map(withLink.map((r, j) => [r.i, payloads[j] ? JSON.parse(payloads[j]) : null]));
+  const rows = uids.map((uid, i) => {
+    const p = byIndex.get(i);
+    return {
+      id: uid.slice(0, 10),
+      name: who[uid] || null,
+      hours: Number(ranked[i * 2 + 1]),
+      date: last[uid] || null,
+      link: p ? lastLink[uid] : null,
+      // top folders from that person's stored payload; absent if they used --hide-projects
+      projects: p && p.p ? p.p.map(([n, h]) => [n, h / 10]) : null,
+      you: uid === process.env.OWNER_UID,
+    };
+  });
   return json({ rows, sheets: Number(created) || 0, views: Number(views) || 0, at: new Date().toISOString() });
 }

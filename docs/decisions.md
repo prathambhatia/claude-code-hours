@@ -183,3 +183,33 @@ live" if that link's 90-day TTL has already passed.
 **Revisit if:** the owner wants full link history per person (would need a Redis set, e.g.
 `links:<uid>`, appended to on every run instead of overwritten), or if the privacy narrowing this
 decision introduces ever needs disclosing more prominently than decision 4 already does.
+
+**28/09/2026 — added a per-person "Projects" column, and a way to opt out of both columns:**
+
+`GET /api/admin`'s row listing now `GET`s each live `r:<id>` payload (replacing the separate
+`EXISTS` check — a dead id just returns null, which does double duty) and surfaces its `p` field
+(top folder names, decision 3/`src/payload.js`) as a `projects` column in `site/admin.html`, next
+to "Short link". A new Redis set, `rank:hidden` (uids), is checked before including *either*
+column for a row — added because a team member asked to have their link hidden from this table.
+
+- **Hiding is by uid, in the set, not a per-link toggle.** Adding a uid to `rank:hidden` suppresses
+  their link and projects on every future admin page load, including runs they make after being
+  added — the set is read at display time, not baked into what `POST /api/r` writes. Removing them
+  from the set (`SREM rank:hidden <uid>`) un-hides them retroactively, back to whatever their
+  current `rank:link` points at.
+- **Hiding covers "Projects" too, not just "Short link", by choice, not by explicit request.** The
+  ask was "hide my short link"; folder names are what the link would actually reveal (often client
+  names, decision 4), so hiding one without the other would have been a hollow promise. Flagged here
+  because it goes slightly beyond the literal request.
+- **The hidden uid was matched from `rank:name` by naming-convention inference** (`Akshay-Devx`,
+  no exact `"Akshay Patel"` entry existed), not an exact string match — if that guess is ever wrong,
+  the wrong person's data is suppressed and the right person's stays visible. No verification path
+  exists for this beyond asking the person directly.
+- **No self-serve opt-out.** Adding a uid to `rank:hidden` is a manual `SADD` in the Upstash console
+  or via `redis-cli`, same manual-only pattern as decision 4's takedown path.
+- **What this doesn't do:** the underlying `r:<id>` page is still public to anyone who already has
+  that URL — hiding only removes it from this admin table, it does not revoke or delete the link.
+
+**Revisit if:** more people ask to be hidden (build a self-serve opt-out, e.g. `--hide-from-admin`
+in the CLI writing straight to `rank:hidden`), or if a hide request turns out to have hit the wrong
+uid.
