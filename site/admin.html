@@ -34,7 +34,6 @@ tr.new td { animation: flash 2.4s ease-out; }
 .error { color: var(--stamp); }
 .none { color: var(--ink-3); }
 td a { color: var(--ink); }
-td.proj { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font-size: 14px; }
 </style>
 </head>
 <body>
@@ -47,7 +46,7 @@ td.proj { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-spa
     <div><dt>Short-link views</dt><dd id="views">–</dd></div>
   </dl>
   <table>
-    <thead><tr><th scope="col">Date</th><th scope="col" class="h">Hours</th><th scope="col">Name</th><th scope="col">Short link</th><th scope="col">Projects</th></tr></thead>
+    <thead><tr><th scope="col">Date</th><th scope="col" class="h">Hours</th><th scope="col">Name</th><th scope="col">Short link</th></tr></thead>
     <tbody id="rows"></tbody>
   </table>
 </main>
@@ -69,15 +68,11 @@ async function load() {
   document.getElementById('sheets').textContent = d.sheets.toLocaleString('en-US');
   document.getElementById('views').textContent = d.views.toLocaleString('en-US');
   const ids = new Set(d.rows.map(r => r.id));
-  const proj = r => r.projects && r.projects.length
-    ? r.projects.map(([n, h]) => `${n} ${h.toFixed(1)}h`).join(', ')
-    : null;
   document.getElementById('rows').innerHTML = d.rows.map(r => `<tr class="${known && !known.has(r.id) ? 'new' : ''}">
     <td>${day(r.date)}</td>
     <td class="h">${r.hours.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} h</td>
     <td>${r.name ? esc(r.name) : '<span class="none">not given</span>'}${r.you ? '<span class="you">you</span>' : ''}</td>
-    <td>${r.link ? `<a href="/r/${esc(r.link)}" target="_blank" rel="noopener">/r/${esc(r.link)}</a>` : '<span class="none">none live</span>'}</td>
-    <td class="proj" title="${proj(r) ? esc(proj(r)) : ''}">${proj(r) ? esc(proj(r)) : '<span class="none">–</span>'}</td></tr>`).join('');
+    <td>${r.link ? `<a href="/r/${esc(r.link)}" target="_blank" rel="noopener">/r/${esc(r.link)}</a>` : '<span class="none">none live</span>'}</td></tr>`).join('');
   known = ids;
   const t = new Date(d.at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' });
   document.getElementById('meta').textContent = `Updated ${t} IST. Refreshes every minute while this tab is open.`;

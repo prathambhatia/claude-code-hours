@@ -184,23 +184,19 @@ live" if that link's 90-day TTL has already passed.
 `links:<uid>`, appended to on every run instead of overwritten), or if the privacy narrowing this
 decision introduces ever needs disclosing more prominently than decision 4 already does.
 
-**28/09/2026 — added a per-person "Projects" column, and a way to opt out of both columns:**
+**28/09/2026 — let a person opt their link out of the admin table:**
 
-`GET /api/admin`'s row listing now `GET`s each live `r:<id>` payload (replacing the separate
-`EXISTS` check — a dead id just returns null, which does double duty) and surfaces its `p` field
-(top folder names, decision 3/`src/payload.js`) as a `projects` column in `site/admin.html`, next
-to "Short link". A new Redis set, `rank:hidden` (uids), is checked before including *either*
-column for a row — added because a team member asked to have their link hidden from this table.
+A new Redis set, `rank:hidden` (uids), is checked in `GET /api/admin`'s row listing before
+including a row's link — added because a team member asked to have their short link hidden from
+this table. (An earlier version of this same change also added a "Projects" column, mirroring the
+personal page's per-folder breakdown, into the admin table — that was a misreading of the request
+and has been reverted; the admin table stays Date/Hours/Name/Short link, unchanged otherwise.)
 
 - **Hiding is by uid, in the set, not a per-link toggle.** Adding a uid to `rank:hidden` suppresses
-  their link and projects on every future admin page load, including runs they make after being
-  added — the set is read at display time, not baked into what `POST /api/r` writes. Removing them
-  from the set (`SREM rank:hidden <uid>`) un-hides them retroactively, back to whatever their
-  current `rank:link` points at.
-- **Hiding covers "Projects" too, not just "Short link", by choice, not by explicit request.** The
-  ask was "hide my short link"; folder names are what the link would actually reveal (often client
-  names, decision 4), so hiding one without the other would have been a hollow promise. Flagged here
-  because it goes slightly beyond the literal request.
+  their link on every future admin page load, including runs they make after being added — the set
+  is read at display time, not baked into what `POST /api/r` writes. Removing them from the set
+  (`SREM rank:hidden <uid>`) un-hides them retroactively, back to whatever their current `rank:link`
+  points at.
 - **The hidden uid was matched from `rank:name` by naming-convention inference** (`Akshay-Devx`,
   no exact `"Akshay Patel"` entry existed), not an exact string match — if that guess is ever wrong,
   the wrong person's data is suppressed and the right person's stays visible. No verification path
